@@ -15,7 +15,7 @@ import asyncio
 import httpx
 from sqlalchemy.dialects.postgresql import insert
 
-from app.db import SessionLocal, init_db
+from app.db import SessionLocal
 from app.models import Source, SourceKind
 
 BASE = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions"
@@ -39,7 +39,6 @@ async def fetch(client: httpx.AsyncClient, edition: str) -> dict[str, str]:
 
 
 async def main(names: list[str]) -> None:
-    await init_db()
     async with httpx.AsyncClient(timeout=120) as client:
         for name in names:
             title, grade = COLLECTIONS[name]

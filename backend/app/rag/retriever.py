@@ -24,6 +24,7 @@ class Passage:
     arabic: str | None
     translations: dict = field(default_factory=dict)
     grade: str | None = None
+    madhhab: str | None = None
     score: float = 0.0
 
     def translation(self, lang: str) -> str | None:
@@ -70,6 +71,7 @@ def _row_to_passage(row, score: float) -> Passage:
         arabic=row.arabic,
         translations=row.translations or {},
         grade=row.grade,
+        madhhab=row.madhhab,
         score=score,
     )
 
@@ -102,7 +104,7 @@ class PostgresRetriever:
             rows = await self._session.execute(
                 text(
                     """
-                    SELECT ref_key, kind, label, arabic, translations, grade,
+                    SELECT ref_key, kind, label, arabic, translations, grade, madhhab,
                            1 - (embedding <=> CAST(:vec AS vector)) AS score
                     FROM sources
                     WHERE embedding IS NOT NULL
@@ -125,11 +127,11 @@ class PostgresRetriever:
             rows = await self._session.execute(
                 text(
                     """
-                    SELECT ref_key, kind, label, arabic, translations, grade,
-                           ts_rank(to_tsvector('english', coalesce(translations->'en'->>'text', '')),
+                    SELECT ref_key, kind, label, arabic, translations, grade, madhhab,
+                           ts_rank(to_tsvector('english', coalesce(translations->'en'->>'text', translations->'ur'->>'text', '')),
                                    websearch_to_tsquery('english', :q)) AS score
                     FROM sources
-                    WHERE to_tsvector('english', coalesce(translations->'en'->>'text', ''))
+                    WHERE to_tsvector('english', coalesce(translations->'en'->>'text', translations->'ur'->>'text', ''))
                           @@ websearch_to_tsquery('english', :q)
                     ORDER BY score DESC
                     LIMIT :k

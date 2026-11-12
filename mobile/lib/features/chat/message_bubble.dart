@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models.dart';
 import '../../core/settings_controller.dart';
+import '../../core/theme.dart';
 import '../reference/reference_sheet.dart';
 import 'report_sheet.dart';
 
@@ -28,8 +29,9 @@ class MessageBubble extends ConsumerWidget {
       );
     }
 
-    // Answers in Urdu script are right-to-left even when the app UI is not.
-    final answerDir = message.language == 'ur' || message.language == 'ar' ? TextDirection.rtl : null;
+    // Answers in Urdu or Arabic are right-to-left even when the app UI is not.
+    final answerDir = directionForLanguage(message.language);
+    final answerStyle = styleForLanguage(context, message.language);
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -41,7 +43,7 @@ class MessageBubble extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(message.content, textDirection: answerDir),
+          Text(message.content, textDirection: answerDir, style: answerStyle),
           if (message.citations.isNotEmpty) ...[
             const SizedBox(height: 10),
             Wrap(

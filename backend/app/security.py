@@ -16,7 +16,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.models import User
 
-_bearer = HTTPBearer(auto_error=False)
+bearer = HTTPBearer(auto_error=False)
 _ALGO = "HS256"
 
 
@@ -27,7 +27,7 @@ def create_token(user_id: str) -> str:
 
 
 async def current_user(
-    creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    creds: HTTPAuthorizationCredentials | None = Depends(bearer),
     session: AsyncSession = Depends(get_session),
 ) -> User:
     if creds is None:
@@ -40,3 +40,13 @@ async def current_user(
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown user")
     return user
+
+
+async def optional_user(creds: HTTPAuthorizationCredentials | None, session: AsyncSession) -> User | None:
+    """The signed-in user if a valid token was sent, else None."""
+    if creds is None:
+        return None
+    try:
+        return await current_user(creds, session)
+    except HTTPException:
+        return None

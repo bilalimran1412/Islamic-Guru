@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.config import get_settings
 from app.db import get_session
 from app.deps import get_pipeline
-from app.models import Chat, DailyUsage, Message, Report, Source, User
+from app.models import Chat, DailyUsage, Message, Plan, Report, Source, User
 from app.rag.pipeline import AnswerPipeline
 from app.schemas import (
     AnswerStatus,
@@ -34,7 +34,18 @@ async def guest_login(session: AsyncSession = Depends(get_session)) -> TokenResp
     return TokenResponse(access_token=create_token(user.id), user_id=user.id)
 
 
+def is_premium(user: User) -> bool:
+    if user.plan != Plan.premium:
+        return False
+    exp = user.plan_expires_at
+    if exp is not None and exp.tzinfo is None:  # SQLite returns naive datetimes
+        exp = exp.replace(tzinfo=UTC)
+    return exp is None or exp > datetime.now(UTC)
+
+
 async def _consume_daily_quota(session: AsyncSession, user: User) -> None:
+    if is_premium(user):
+        return
     day = datetime.now(UTC).strftime("%Y-%m-%d")
     usage = await session.get(DailyUsage, (user.id, day))
     if usage is None:
@@ -64,7 +75,8 @@ async def ask(
     session.add(Message(chat=chat, role="user", content=req.question))
     await session.flush()
 
-    result = await pipeline.run(req.question, req.language)
+    madhhab = user.madhhab.value if user.madhhab else None
+    result = await pipeline.run(req.question, req.language, madhhab)
     if result.service_error:
         await session.rollback()  # don't store the question or use up the free quota
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Answer service unavailable, try again")
@@ -165,6 +177,7 @@ async def about() -> dict:
     return {
         "scope": "Sunni guidance from the Quran and Sahih hadith, covering all four schools "
                  "(Hanafi, Shafi'i, Maliki, Hanbali). Shia fiqh is not covered.",
-        "sources": ["Quran (Tanzil / Quran Foundation)", "Sahih al-Bukhari", "Sahih Muslim"],
+        "sources": ["Quran (Tanzil / Quran Foundation)", "Sahih al-Bukhari", "Sahih Muslim",
+                    "Approved fatawa from partner Darul Iftas"],
         "answer_statuses": [s.value for s in AnswerStatus],
     }

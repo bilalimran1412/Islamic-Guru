@@ -40,7 +40,8 @@ class Generator(Protocol):
     async def rewrite(self, question: str) -> RewriteOut | None: ...
 
     async def answer(
-        self, question: str, language: str, passages: list[Passage], feedback: list[str] | None = None
+        self, question: str, language: str, passages: list[Passage], feedback: list[str] | None = None,
+        madhhab: str | None = None,
     ) -> AnswerOut | None: ...
 
 
@@ -48,7 +49,8 @@ def format_sources(passages: list[Passage]) -> str:
     parts = ["<sources>"]
     for p in passages:
         parts.append(f'<source ref_key="{p.ref_key}" label="{p.label}" kind="{p.kind}"'
-                     + (f' grade="{p.grade}"' if p.grade else "") + ">")
+                     + (f' grade="{p.grade}"' if p.grade else "")
+                     + (f' madhhab="{p.madhhab}"' if p.madhhab else "") + ">")
         if p.arabic:
             parts.append(f"<arabic>{p.arabic}</arabic>")
         for lang, t in p.translations.items():
@@ -104,9 +106,12 @@ class ClaudeGenerator:
         )
 
     async def answer(
-        self, question: str, language: str, passages: list[Passage], feedback: list[str] | None = None
+        self, question: str, language: str, passages: list[Passage], feedback: list[str] | None = None,
+        madhhab: str | None = None,
     ) -> AnswerOut | None:
         content = f"{format_sources(passages)}\n\n<reply_language>{language}</reply_language>\n"
+        if madhhab:
+            content += f"<user_school>{madhhab}</user_school>\n"
         content += f"<question>{question}</question>"
         if feedback:
             problems = "\n".join(f"- {p}" for p in feedback)

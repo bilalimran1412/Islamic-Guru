@@ -130,3 +130,119 @@ class SourceText {
     );
   }
 }
+
+class Profile {
+  Profile({
+    required this.userId,
+    required this.email,
+    required this.displayName,
+    required this.signedInWith,
+    required this.madhhab,
+    required this.premiumActive,
+  });
+
+  final String userId;
+  final String? email;
+  final String? displayName;
+  final String? signedInWith; // 'google' | 'apple' | null for guests
+  final String? madhhab;
+  final bool premiumActive;
+
+  bool get isGuest => signedInWith == null;
+
+  factory Profile.fromJson(Map<String, dynamic> j) => Profile(
+        userId: j['user_id'] as String,
+        email: j['email'] as String?,
+        displayName: j['display_name'] as String?,
+        signedInWith: j['signed_in_with'] as String?,
+        madhhab: j['madhhab'] as String?,
+        premiumActive: j['premium_active'] as bool? ?? false,
+      );
+}
+
+class FatwaSummary {
+  FatwaSummary({
+    required this.id,
+    required this.title,
+    required this.publisher,
+    required this.scholar,
+    required this.madhhab,
+    required this.language,
+  });
+
+  final String id;
+  final String title;
+  final String publisher;
+  final String? scholar;
+  final String? madhhab;
+  final String language;
+
+  factory FatwaSummary.fromJson(Map<String, dynamic> j) => FatwaSummary(
+        id: j['id'] as String,
+        title: j['title'] as String,
+        publisher: j['publisher'] as String,
+        scholar: j['scholar'] as String?,
+        madhhab: j['madhhab'] as String?,
+        language: j['language'] as String,
+      );
+}
+
+class FatwaDetail extends FatwaSummary {
+  FatwaDetail({
+    required super.id,
+    required super.title,
+    required super.publisher,
+    required super.scholar,
+    required super.madhhab,
+    required super.language,
+    required this.question,
+    required this.answer,
+    required this.originalUrl,
+  });
+
+  final String? question;
+  final String answer;
+  final String originalUrl;
+
+  factory FatwaDetail.fromJson(Map<String, dynamic> j) {
+    final s = FatwaSummary.fromJson(j);
+    return FatwaDetail(
+      id: s.id,
+      title: s.title,
+      publisher: s.publisher,
+      scholar: s.scholar,
+      madhhab: s.madhhab,
+      language: s.language,
+      question: j['question'] as String?,
+      answer: j['answer'] as String,
+      originalUrl: j['original_url'] as String,
+    );
+  }
+}
+
+class ScholarQuestion {
+  ScholarQuestion({
+    required this.id,
+    required this.question,
+    required this.status,
+    required this.answer,
+    required this.scholarName,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String question;
+  final String status;
+  final String? answer;
+  final String? scholarName;
+  final DateTime createdAt;
+
+  factory ScholarQuestion.fromJson(Map<String, dynamic> j) => ScholarQuestion(
+        id: j['id'] as String,
+        question: j['question'] as String,
+        status: j['status'] as String,
+        answer: j['answer'] as String?,
+        scholarName: j['scholar_name'] as String?,
+        createdAt: DateTime.parse(j['created_at'] as String),
+      );
+}

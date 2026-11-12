@@ -14,4 +14,9 @@ Defaults chosen when the project was set up (Nov 2026). Change them here when th
 | Quran source | Tanzil text (CC BY 3.0, unchanged, attributed). Translations via Tanzil files now; Quran Foundation API once developer credentials are issued. |
 | AI model | Claude via the Anthropic API with server-side refusal fallback. Model and effort are settings (`ANSWER_MODEL`, `ANSWER_EFFORT`). |
 | Sign-in | Guest account with a token on first launch; Google / Apple sign-in to be linked to the same account later (Apple requires Sign in with Apple once Google sign-in ships on iOS). |
-| Free tier | 10 questions per day per user (`DAILY_FREE_QUESTIONS`). |
+| Free tier | 10 questions per day per user (`DAILY_FREE_QUESTIONS`). Premium has no daily limit. |
+| Maslak setting | Optional. With a school chosen, that school's view comes first where sources state school positions (fatawa carry a madhhab tag); others still shown. With none chosen, views side by side. |
+| Voice | On-device speech recognition (Android / iOS built-in): no server cost, Urdu supported where the phone has the Urdu (Pakistan) language pack. |
+| Ask a Scholar payment | Until store billing is live, free-plan questions wait as "awaiting payment" and scholars don't see them; premium users' questions go straight to the panel. Premium can be granted manually from `/admin` (testers, sponsored / sadaqah access). |
+| Scholar review access | One shared admin key plus the reviewer's name on every decision. Move to individual accounts when the panel grows. |
+| Fonts | Amiri (Arabic) and Noto Nastaliq Urdu bundled in the app (SIL Open Font License), shown on the Licences screen. |

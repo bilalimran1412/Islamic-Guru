@@ -7,7 +7,7 @@ only from the Quran and Sahih hadith, with every answer citing its source.
 |---|---|
 | `mobile/` | Flutter app (Android first, iOS from the same code) |
 | `backend/` | Python FastAPI API: answer pipeline, reference checker, chats, reports |
-| `docs/` | Architecture, decisions, data-source notes |
+| `docs/` | Phase plan, architecture, decisions, deployment |
 
 ## How an answer is made
 
@@ -21,16 +21,29 @@ only from the Quran and Sahih hadith, with every answer citing its source.
    we retrieved, and any quote must match the stored text. A failed check is retried once with
    the problems listed; if it fails again, the user gets "no reliable answer", never an unchecked one.
 
+## Features
+
+- **Chat** with citations you can tap to see the Arabic text, translation and grade.
+- **Languages:** English, Urdu, Roman Urdu, Arabic. **Voice questions** (on-device speech recognition).
+- **Maslak setting:** Hanafi, Shafi'i, Maliki, Hanbali or Ahl-e-Hadith first; or all side by side.
+- **Fatawa library:** scholar-approved fatawa from partner sites, unchanged, with a link to the original.
+- **Ask a Scholar:** personal questions answered by the panel.
+- **Accounts:** guest by default; Google / Apple sign-in keeps history across devices.
+- **Scholar review page** at `/admin`: reported answers, fatawa queue, scholar questions, premium grants.
+
+See `docs/PHASES.md` for what is done and what is waiting on keys or accounts.
+
 ## Run locally
 
 Needs Docker, Python 3.12+ and Flutter 3.47+.
 
 ```bash
-cp backend/.env.example backend/.env   # then fill in ANTHROPIC_API_KEY and JWT_SECRET
-docker compose up -d                   # Postgres + pgvector, and the API on :8000
+cp backend/.env.example backend/.env   # then fill in ANTHROPIC_API_KEY, JWT_SECRET, ADMIN_API_KEY
+docker compose up -d                   # Postgres + pgvector, and the API on :8000 (runs migrations)
 ```
 
-Load the library (from `backend/`, with a local virtualenv and `pip install -r requirements-dev.txt`):
+Load the library (from `backend/`, with a local virtualenv and `pip install -r requirements-dev.txt`;
+run `alembic upgrade head` first if the API hasn't started yet):
 
 ```bash
 python -m scripts.import_quran --arabic data/raw/quran-uthmani.txt --translation "en|Saheeh International|data/raw/en.sahih.txt"
@@ -50,3 +63,5 @@ cd mobile && flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 cd backend && pytest
 cd mobile && flutter analyze && flutter test
 ```
+
+Deployment: `docs/DEPLOY.md`.

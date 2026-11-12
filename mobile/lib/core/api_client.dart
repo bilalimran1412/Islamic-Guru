@@ -73,6 +73,65 @@ class ApiClient {
   Future<void> report(String messageId, String reason, {String? details}) async {
     await _dio.post('/v1/reports', data: {'message_id': messageId, 'reason': reason, 'details': ?details});
   }
+
+  // ---- account ----
+
+  Future<Profile> me() async {
+    final res = await _dio.get<Map<String, dynamic>>('/v1/me');
+    return Profile.fromJson(res.data!);
+  }
+
+  Future<Profile> updateMe({String? language, String? madhhab, bool clearMadhhab = false}) async {
+    final res = await _dio.patch<Map<String, dynamic>>('/v1/me', data: {
+      'preferred_language': ?language,
+      'madhhab': ?madhhab,
+      'clear_madhhab': clearMadhhab,
+    });
+    return Profile.fromJson(res.data!);
+  }
+
+  /// Exchanges a Google / Apple ID token for our token. The current guest token is
+  /// sent along so the guest's history is kept.
+  Future<void> signIn(String provider, String idToken, {String? name}) async {
+    final guest = await _token();
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/v1/auth/$provider',
+      data: {'id_token': idToken, 'name': ?name},
+      options: Options(headers: {'Authorization': 'Bearer $guest'}),
+    );
+    _cachedToken = res.data!['access_token'] as String;
+    await _storage.write(key: _tokenKey, value: _cachedToken);
+  }
+
+  // ---- fatawa library ----
+
+  Future<List<FatwaSummary>> fatwas({String? query, String? madhhab}) async {
+    final res = await _dio.get<List<dynamic>>('/v1/fatwas', queryParameters: {
+      if (query != null && query.isNotEmpty) 'q': query,
+      'madhhab': ?madhhab,
+    });
+    return res.data!.map((f) => FatwaSummary.fromJson(f as Map<String, dynamic>)).toList();
+  }
+
+  Future<FatwaDetail> fatwa(String id) async {
+    final res = await _dio.get<Map<String, dynamic>>('/v1/fatwas/$id');
+    return FatwaDetail.fromJson(res.data!);
+  }
+
+  // ---- Ask a Scholar ----
+
+  Future<List<ScholarQuestion>> scholarQuestions() async {
+    final res = await _dio.get<List<dynamic>>('/v1/scholar-questions');
+    return res.data!.map((q) => ScholarQuestion.fromJson(q as Map<String, dynamic>)).toList();
+  }
+
+  Future<ScholarQuestion> askScholar(String question, String language) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/v1/scholar-questions',
+      data: {'question': question, 'language': language},
+    );
+    return ScholarQuestion.fromJson(res.data!);
+  }
 }
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
@@ -82,3 +141,13 @@ final referenceProvider = FutureProvider.family<SourceText, String>(
 );
 
 final chatListProvider = FutureProvider<List<ChatSummary>>((ref) => ref.watch(apiClientProvider).chats());
+
+final profileProvider = FutureProvider<Profile>((ref) => ref.watch(apiClientProvider).me());
+
+final fatwaProvider = FutureProvider.family<FatwaDetail, String>(
+  (ref, id) => ref.watch(apiClientProvider).fatwa(id),
+);
+
+final scholarQuestionsProvider = FutureProvider<List<ScholarQuestion>>(
+  (ref) => ref.watch(apiClientProvider).scholarQuestions(),
+);

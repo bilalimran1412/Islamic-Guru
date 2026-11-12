@@ -51,7 +51,9 @@ class AnswerPipeline:
         return PipelineResult(status=status, language=lang, answer=answer,
                               disclaimer=DISCLAIMERS[lang.value], **kw)
 
-    async def run(self, question: str, language: Language | None = None) -> PipelineResult:
+    async def run(
+        self, question: str, language: Language | None = None, madhhab: str | None = None
+    ) -> PipelineResult:
         lang = language or detect_language(question)
         sensitive = any(t in question.lower() for t in _SENSITIVE_TERMS)
 
@@ -71,7 +73,7 @@ class AnswerPipeline:
         feedback: list[str] | None = None
         problems: list[str] = []
         for attempt in range(1, MAX_ATTEMPTS + 1):
-            draft = await self._generator.answer(question, lang.value, passages, feedback)
+            draft = await self._generator.answer(question, lang.value, passages, feedback, madhhab=madhhab)
             if draft is None:
                 if attempt == 1:
                     return self._result(AnswerStatus.no_answer, lang, NO_ANSWER[lang.value],

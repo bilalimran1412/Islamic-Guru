@@ -8,6 +8,8 @@ class Settings(BaseSettings):
 
     app_name: str = "Islamic Guru API"
     database_url: str = "postgresql+asyncpg://guru:guru@localhost:5432/guru"
+    # Production uses Alembic migrations. True creates tables on startup (quick local tries only).
+    auto_create_tables: bool = False
 
     # Auth
     jwt_secret: str = "change-me-in-production"
@@ -29,6 +31,16 @@ class Settings(BaseSettings):
 
     # Free tier
     daily_free_questions: int = 10
+
+    # Scholar review page (/admin). Empty disables the admin API.
+    admin_api_key: str = ""
+
+    # Sign in with Google / Apple: accepted token audiences (comma-separated client IDs)
+    google_client_ids: str = ""
+    apple_client_ids: str = ""
+
+    # Ask a Scholar: when true, free-plan questions wait for payment before scholars see them
+    ask_scholar_requires_payment: bool = True
 
 
 @lru_cache

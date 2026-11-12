@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scholar Review</title>
+<style>
+  :root { --bg:#f6f7f5; --card:#fff; --ink:#1d2421; --muted:#5d6b65; --line:#dde3df; --accent:#0f6b4f; --warn:#a33a2a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111614; --card:#1a211e; --ink:#e7ece9; --muted:#9fb0a8; --line:#2b3531; --accent:#4cc39a; --warn:#ff8a78; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:16px; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  header h1 { font-size:18px; margin:0 16px 0 0; }
+  input, select, textarea, button { font:inherit; color:inherit; }
+  input, select, textarea { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:6px 10px; }
+  textarea { width:100%; min-height:120px; }
+  button { border:0; border-radius:8px; padding:7px 14px; background:var(--accent); color:#fff; cursor:pointer; }
+  button.secondary { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  button.danger { background:var(--warn); }
+  nav { display:flex; gap:4px; padding:12px 16px 0; flex-wrap:wrap; }
+  nav button { background:transparent; color:var(--muted); border:1px solid var(--line); }
+  nav button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  main { padding:16px; max-width:900px; margin:0 auto; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:12px; }
+  .meta { color:var(--muted); font-size:13px; }
+  .label { font-weight:600; margin-top:10px; }
+  .body { white-space:pre-wrap; }
+  .rtl { direction:rtl; text-align:right; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+  .empty { color:var(--muted); padding:24px 0; }
+  #msg { color:var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Scholar Review</h1>
+  <input id="reviewer" placeholder="Your name" autocomplete="name">
+  <input id="key" type="password" placeholder="Admin key">
+  <button id="save">Connect</button>
+  <span id="msg"></span>
+</header>
+<nav id="tabs">
+  <button data-tab="reports" class="active">Reported answers</button>
+  <button data-tab="fatwas">Fatawa queue</button>
+  <button data-tab="questions">Ask a Scholar</button>
+  <button data-tab="users">Plans</button>
+</nav>
+<main id="main"><p class="empty">Enter your name and the admin key, then Connect.</p></main>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const store = { get(k) { try { return sessionStorage.getItem(k) || ''; } catch { return ''; } },
+                set(k, v) { try { sessionStorage.setItem(k, v); } catch {} } };
+$('#reviewer').value = store.get('reviewer');
+$('#key').value = store.get('key');
+let tab = 'reports';
+
+function el(tag, attrs = {}, ...children) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'onclick') n.addEventListener('click', v); else if (v !== undefined && v !== null) n.setAttribute(k, v);
+  }
+  for (const c of children.flat()) if (c !== null && c !== undefined) n.append(c instanceof Node ? c : String(c));
+  return n;
+}
+const rtl = (lang) => (lang === 'ur' || lang === 'ar') ? 'body rtl' : 'body';
+
+async function api(path, opts = {}) {
+  const res = await fetch('/v1/admin' + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Key': $('#key').value,
+               'X-Reviewer': $('#reviewer').value, ...(opts.headers || {}) },
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+  return res.json();
+}
+
+async function render() {
+  const main = $('#main');
+  $('#msg').textContent = '';
+  try {
+    main.replaceChildren(el('p', { class: 'empty' }, 'Loading…'));
+    const stats = await api('/stats');
+    const counts = { reports: stats.open_reports, fatwas: stats.pending_fatwas, questions: stats.pending_scholar_questions };
+    document.querySelectorAll('#tabs button').forEach((b) => {
+      b.classList.toggle('active', b.dataset.tab === tab);
+      const base = b.textContent.replace(/ \(\d+\)$/, '');
+      b.textContent = counts[b.dataset.tab] ? `${base} (${counts[b.dataset.tab]})` : base;
+    });
+    main.replaceChildren(...(await views[tab]()));
+  } catch (e) {
+    main.replaceChildren(el('p', { class: 'empty' }, 'Could not load: ' + e.message));
+  }
+}
+
+async function act(fn) {
+  try { await fn(); await render(); } catch (e) { $('#msg').textContent = e.message; }
+}
+
+const views = {
+  async reports() {
+    const items = await api('/reports?status=open');
+    if (!items.length) return [el('p', { class: 'empty' }, 'No open reports.')];
+    return items.map((r) => {
+      const note = el('textarea', { placeholder: 'Note (optional)', style: 'min-height:60px' });
+      return el('div', { class: 'card' },
+        el('div', { class: 'meta' }, `Reason: ${r.reason} · ${new Date(r.created_at).toLocaleString()}`),
+        r.details ? el('div', { class: 'body' }, r.details) : null,
+        el('div', { class: 'label' }, 'Question'), el('div', { class: rtl(r.language) }, r.question || '—'),
+        el('div', { class: 'label' }, 'Answer shown'), el('div', { class: rtl(r.language) }, r.answer),
+        el('div', { class: 'label' }, 'References'),
+        el('div', { class: 'meta' }, r.citations.map((c) => `[${c.index}] ${c.label}`).join(' · ') || 'none'),
+        note,
+        el('div', { class: 'row' },
+          el('button', { class: 'danger', onclick: () => act(() => api(`/reports/${r.id}`, { method: 'PATCH',
+            body: JSON.stringify({ status: 'confirmed_wrong', note: note.value }) })) }, 'Answer is wrong'),
+          el('button', { class: 'secondary', onclick: () => act(() => api(`/reports/${r.id}`, { method: 'PATCH',
+            body: JSON.stringify({ status: 'dismissed', note: note.value }) })) }, 'Answer is fine')));
+    });
+  },
+
+  async fatwas() {
+    const items = await api('/fatwas?status=pending');
+    if (!items.length) return [el('p', { class: 'empty' }, 'No fatawa waiting for review.')];
+    return items.map((f) => {
+      const madhhab = el('select', {}, ...['', 'hanafi', 'shafii', 'maliki', 'hanbali', 'ahl_e_hadith']
+        .map((m) => { const o = el('option', { value: m }, m || 'School (optional)'); if (m === f.madhhab) o.selected = true; return o; }));
+      const scholar = el('input', { placeholder: 'Mufti / scholar name', value: f.scholar || '' });
+      return el('div', { class: 'card' },
+        el('div', { class: 'meta' }, `${f.publisher} · ${f.language}`),
+        el('h3', { class: rtl(f.language) }, f.title),
+        f.question ? el('div', { class: 'label' }, 'Question') : null,
+        f.question ? el('div', { class: rtl(f.language) }, f.question) : null,
+        el('div', { class: 'label' }, 'Answer'),
+        el('div', { class: rtl(f.language) }, f.answer),
+        el('div', { class: 'row' }, el('a', { href: f.original_url, target: '_blank', rel: 'noopener' }, 'Open original')),
+        el('div', { class: 'row' }, madhhab, scholar,
+          el('button', { onclick: () => act(() => api(`/fatwas/${f.id}/approve`, { method: 'POST',
+            body: JSON.stringify({ madhhab: madhhab.value || null, scholar: scholar.value || null }) })) }, 'Approve'),
+          el('button', { class: 'danger', onclick: () => act(() => api(`/fatwas/${f.id}/reject`, { method: 'POST' })) }, 'Reject')));
+    });
+  },
+
+  async questions() {
+    const items = await api('/scholar-questions?status=pending');
+    if (!items.length) return [el('p', { class: 'empty' }, 'No questions waiting.')];
+    return items.map((q) => {
+      const answer = el('textarea', { placeholder: 'Your answer', class: (q.language === 'ur' || q.language === 'ar') ? 'rtl' : '' });
+      return el('div', { class: 'card' },
+        el('div', { class: 'meta' }, `${q.language}${q.madhhab ? ' · ' + q.madhhab : ''} · ${new Date(q.created_at).toLocaleString()}`),
+        el('div', { class: rtl(q.language) }, q.question),
+        answer,
+        el('div', { class: 'row' },
+          el('button', { onclick: () => act(() => api(`/scholar-questions/${q.id}/answer`, { method: 'POST',
+            body: JSON.stringify({ answer: answer.value }) })) }, 'Send answer'),
+          el('button', { class: 'secondary', onclick: () => act(() => api(`/scholar-questions/${q.id}/decline`, { method: 'POST' })) }, 'Decline')));
+    });
+  },
+
+  async users() {
+    const id = el('input', { placeholder: 'User ID (from the app: Settings → Account)', style: 'flex:1;min-width:240px' });
+    const days = el('input', { type: 'number', min: 1, placeholder: 'Days (blank = no expiry)' });
+    const done = el('div', { class: 'meta' });
+    const grant = (plan) => async () => {
+      try {
+        const r = await api(`/users/${encodeURIComponent(id.value.trim())}/plan`, { method: 'POST',
+          body: JSON.stringify({ plan, days: days.value ? Number(days.value) : null }) });
+        done.textContent = `Saved: ${r.plan}${r.expires_at ? ' until ' + new Date(r.expires_at).toLocaleDateString() : ''}`;
+      } catch (e) { done.textContent = e.message; }
+    };
+    return [el('div', { class: 'card' },
+      el('div', {}, 'Give premium to testers or sponsored (sadaqah) users.'),
+      el('div', { class: 'row' }, id, days),
+      el('div', { class: 'row' },
+        el('button', { onclick: grant('premium') }, 'Grant premium'),
+        el('button', { class: 'secondary', onclick: grant('free') }, 'Set to free')),
+      done)];
+  },
+};
+
+$('#save').addEventListener('click', () => { store.set('reviewer', $('#reviewer').value); store.set('key', $('#key').value); render(); });
+$('#tabs').addEventListener('click', (e) => { if (e.target.dataset.tab) { tab = e.target.dataset.tab; render(); } });
+if ($('#key').value && $('#reviewer').value) render();
+</script>
+</body>
+</html>

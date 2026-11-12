@@ -2,6 +2,8 @@ import os
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["JWT_SECRET"] = "test-secret-that-is-long-enough-for-hs256"
+os.environ["ADMIN_API_KEY"] = "test-admin-key"
+os.environ["ASK_SCHOLAR_REQUIRES_PAYMENT"] = "true"
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
 
 import pytest
@@ -50,8 +52,9 @@ class FakeGenerator:
     async def rewrite(self, question):
         return self.rewrite_out
 
-    async def answer(self, question, language, passages, feedback=None):
+    async def answer(self, question, language, passages, feedback=None, madhhab=None):
         self.feedback.append(feedback)
+        self.madhhab = madhhab
         return self.answers.pop(0) if self.answers else None
 
 

@@ -18,7 +18,7 @@ import asyncio
 
 from sqlalchemy.dialects.postgresql import insert
 
-from app.db import SessionLocal, init_db
+from app.db import SessionLocal
 from app.models import Source, SourceKind
 from scripts.surahs import SURAH_NAMES
 
@@ -38,7 +38,6 @@ def read_tanzil(path: str) -> dict[tuple[int, int], str]:
 
 
 async def main(arabic_path: str, translations: list[str]) -> None:
-    await init_db()
     arabic = read_tanzil(arabic_path)
     trans = []
     for spec in translations:

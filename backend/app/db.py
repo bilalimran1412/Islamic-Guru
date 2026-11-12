@@ -21,7 +21,10 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 
 
 async def init_db() -> None:
-    """Create tables. Replace with Alembic migrations before the first production deploy."""
+    """Create tables directly (tests and quick local experiments only).
+
+    Real databases are managed with Alembic: `alembic upgrade head`.
+    """
     from app import models  # noqa: F401  (registers tables)
 
     async with engine.begin() as conn:

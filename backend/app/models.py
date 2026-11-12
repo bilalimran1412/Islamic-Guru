@@ -10,7 +10,18 @@ import uuid
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -45,6 +56,7 @@ class Source(Base):
     # {"en": {"text": ..., "translator": ...}, "ur": {...}}
     translations: Mapped[dict] = mapped_column(JsonType, default=dict)
     grade: Mapped[str | None] = mapped_column(String(60))  # hadith grading, e.g. "Sahih"
+    madhhab: Mapped[str | None] = mapped_column(String(40))  # set for fatawa / fiqh texts
     attribution: Mapped[str] = mapped_column(String(300))  # licence / credit line shown in the app
     source_url: Mapped[str | None] = mapped_column(String(500))
     embedding = mapped_column(EmbeddingType, nullable=True)
@@ -77,14 +89,33 @@ class Fatwa(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class Madhhab(str, enum.Enum):
+    hanafi = "hanafi"
+    shafii = "shafii"
+    maliki = "maliki"
+    hanbali = "hanbali"
+    ahl_e_hadith = "ahl_e_hadith"
+
+
+class Plan(str, enum.Enum):
+    free = "free"
+    premium = "premium"
+
+
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("auth_provider", "provider_subject"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    email: Mapped[str | None] = mapped_column(String(320), unique=True)
+    email: Mapped[str | None] = mapped_column(String(320))
     display_name: Mapped[str | None] = mapped_column(String(120))
+    # "google" | "apple" once linked; None for guest accounts
+    auth_provider: Mapped[str | None] = mapped_column(String(20))
+    provider_subject: Mapped[str | None] = mapped_column(String(255))
     preferred_language: Mapped[str] = mapped_column(String(10), default="en")
-    madhhab: Mapped[str | None] = mapped_column(String(40))  # Phase 2 setting
+    madhhab: Mapped[Madhhab | None] = mapped_column(Enum(Madhhab))
+    plan: Mapped[Plan] = mapped_column(Enum(Plan), default=Plan.free)
+    plan_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -132,6 +163,8 @@ class Report(Base):
     reason: Mapped[str] = mapped_column(String(40))
     details: Mapped[str | None] = mapped_column(Text)
     status: Mapped[ReportStatus] = mapped_column(Enum(ReportStatus), default=ReportStatus.open)
+    reviewer: Mapped[str | None] = mapped_column(String(120))
+    reviewer_note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -141,3 +174,31 @@ class DailyUsage(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
     day: Mapped[str] = mapped_column(String(10), primary_key=True)  # YYYY-MM-DD
     questions: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ScholarQuestionStatus(str, enum.Enum):
+    awaiting_payment = "awaiting_payment"
+    pending = "pending"
+    answered = "answered"
+    declined = "declined"
+
+
+class ScholarQuestion(Base):
+    """Ask a Scholar: a question answered personally by a panel scholar (Phase 3)."""
+
+    __tablename__ = "scholar_questions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    question: Mapped[str] = mapped_column(Text)
+    language: Mapped[str] = mapped_column(String(10))
+    madhhab: Mapped[str | None] = mapped_column(String(40))
+    status: Mapped[ScholarQuestionStatus] = mapped_column(
+        Enum(ScholarQuestionStatus), default=ScholarQuestionStatus.awaiting_payment
+    )
+    paid: Mapped[bool] = mapped_column(Boolean, default=False)
+    payment_ref: Mapped[str | None] = mapped_column(String(255))  # store purchase token
+    answer: Mapped[str | None] = mapped_column(Text)
+    scholar_name: Mapped[str | None] = mapped_column(String(200))
+    answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

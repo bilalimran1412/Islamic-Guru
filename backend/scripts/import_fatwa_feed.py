@@ -17,7 +17,7 @@ from email.utils import parsedate_to_datetime
 import httpx
 from sqlalchemy import select
 
-from app.db import SessionLocal, init_db
+from app.db import SessionLocal
 from app.models import Fatwa
 
 _ATOM = "{http://www.w3.org/2005/Atom}"
@@ -47,7 +47,6 @@ def parse_feed(xml: str) -> list[dict]:
 
 
 async def main(publisher: str, feed: str, language: str) -> None:
-    await init_db()
     async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
         resp = await client.get(feed)
         resp.raise_for_status()
